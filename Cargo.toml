@@ -1,0 +1,13 @@
+[package]
+name = "ndjson_zst"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+keywords = ["ndjson", "zst"]
+description = "simple nsjson zst reader/writer"
+readme = "README.md"
+repository = "https://github.com/boojongmin/ndjson_zst"
+
+
+[dependencies]
+zstd = "0.13.1"
