@@ -1,9 +1,8 @@
 use std::fs::File;
-use std::io;
-use std::io::{BufRead, BufReader, BufWriter, Lines, Read, Write};
+use std::io::{BufRead, BufWriter, Read, Write};
+
 use zstd::Decoder;
 use zstd::stream::AutoFinishEncoder;
-
 use zstd::stream::write::Encoder;
 
 pub struct NdjsonZstWriter<'a> {
@@ -21,8 +20,8 @@ impl From<&str> for NdjsonZstWriter<'_> {
 impl NdjsonZstWriter<'_> {
     pub fn new(f: File) -> Self {
         let writer = BufWriter::new(f);
-        let mut encoder = Encoder::new(writer, 0).unwrap();
-        let mut encoder = encoder.auto_finish();
+        let encoder = Encoder::new(writer, 0).unwrap();
+        let encoder = encoder.auto_finish();
         NdjsonZstWriter { encoder, str_buf: String::new() }
     }
 
