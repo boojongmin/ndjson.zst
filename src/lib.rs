@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufWriter, Read, Write};
+use std::io::{BufWriter, Read, Write};
 
 use zstd::Decoder;
 use zstd::stream::AutoFinishEncoder;
