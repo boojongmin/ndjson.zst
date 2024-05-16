@@ -1,28 +1,29 @@
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 
 use zstd::Decoder;
 use zstd::stream::AutoFinishEncoder;
 use zstd::stream::write::Encoder;
+use zstd::zstd_safe::CompressionLevel;
 
 pub struct NdjsonZstWriter<'a> {
     encoder: AutoFinishEncoder<'a , BufWriter<File>>,
     str_buf: String
 }
 
-impl From<&str> for NdjsonZstWriter<'_> {
-    fn from(value: &str) -> Self {
-        let file = File::create(value).unwrap();
-        NdjsonZstWriter::new(file)
-    }
-}
-
 impl NdjsonZstWriter<'_> {
-    pub fn new(f: File) -> Self {
-        let writer = BufWriter::new(f);
-        let encoder = Encoder::new(writer, 0).unwrap();
-        let encoder = encoder.auto_finish();
-        NdjsonZstWriter { encoder, str_buf: String::new() }
+    pub fn new(path: &str, compression_level: CompressionLevel) -> Result<Self, std::io::Error> {
+        let file = File::create(path).unwrap();
+        let writer = BufWriter::new(file);
+        return match Encoder::new(writer, compression_level) {
+            Ok(encoder) => {
+                let encoder = encoder.auto_finish();
+                Ok(NdjsonZstWriter { encoder, str_buf: String::new() })
+            }
+            Err(x) => {
+                Err(x)
+            }
+        };
     }
 
     pub fn write_with_remove_line(&mut self, data: &str) {
@@ -32,38 +33,78 @@ impl NdjsonZstWriter<'_> {
                 self.str_buf.push(c);
             }
         }
+        self.str_buf.push('\n');
         self.encoder.write_all(self.str_buf.as_bytes()).unwrap();
-        self.encoder.write_all(b"\n").unwrap();
     }
 
     pub fn write(&mut self, data: &str) {
-        self.encoder.write_all(data.as_bytes()).unwrap();
-        self.encoder.write_all(b"\n").unwrap();
+        self.str_buf.clear();
+        self.str_buf.push_str(data);
+        self.str_buf.push('\n');
+        self.encoder.write_all(self.str_buf.as_bytes()).unwrap();
     }
 }
 
 
-pub struct NdjsonZstReader {
-    buf: String
+pub struct NdjsonZstReader<'a> {
+    lines: std::io::Lines<Box<BufReader<Decoder<'a, BufReader<File>>>>>,
+
 }
 
-impl From<&str> for NdjsonZstReader {
-    fn from(value: &str) -> Self {
-        let file = File::open(value).unwrap();
-        NdjsonZstReader::new(file)
+impl NdjsonZstReader<'_> {
+    pub fn new(path: &str) -> Result<Self, std::io::Error> {
+        let file = File::open(path).unwrap();
+        return match Decoder::new(file) {
+            Ok(decoder) => {
+                let zstd_file_buf_reader = BufReader::new(decoder);
+                Ok(NdjsonZstReader { lines: Box::new(zstd_file_buf_reader).lines() })
+            },
+            Err(e) => {Err(e)}
+        };
     }
 }
 
-impl NdjsonZstReader {
-    pub fn new(f: File) -> Self {
-        let mut decoder = Decoder::new(f).unwrap();
-        let mut buf = String::new();
-        let _ = decoder.read_to_string(&mut buf);
-        // TODO support stream
-        NdjsonZstReader { buf }
-    }
+impl Iterator for NdjsonZstReader<'_> {
+    type Item = String;
 
-    pub fn lines(&self) -> std::str::Lines<'_> {
-        self.buf.lines()
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.lines.next() {
+            Some(Ok(x)) => {
+                return Some(x);
+            },
+            _ => {
+                return None;
+            }
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn test_read() {
+        {
+            let path = "test.ndjson.zst";
+            let mut ndjson_zst_writer = NdjsonZstWriter::new(path, CompressionLevel::default()).unwrap();
+            ndjson_zst_writer.write("hello");
+            ndjson_zst_writer.write("world");
+            ndjson_zst_writer.write("!!");
+        }
+
+        let path = "test.ndjson.zst";
+        let ndjson_zst_reader = NdjsonZstReader::new(path).unwrap();
+
+        let mut r = String::new();
+        for line in ndjson_zst_reader {
+            r.push_str(&line);
+        }
+
+        assert_eq!(r, "helloworld!!");
+        fs::remove_file(path).unwrap();
     }
 }

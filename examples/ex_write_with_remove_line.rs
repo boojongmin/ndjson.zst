@@ -33,8 +33,8 @@ fn read_example() {
     let mut ndjson_zst_reader = NdjsonZstReader::from(PATH);
 
     let mut r = String::new();
-    for line in ndjson_zst_reader.lines() {
-        r.push_str(line);
+    for line in ndjson_zst_reader {
+        r.push_str(&line);
     }
     assert_eq!(r, DATA_EXPECTED);
 

@@ -1,7 +1,6 @@
-use std::fs::File;
 use std::panic::catch_unwind;
-use ndjson_zst::{NdjsonZstReader, NdjsonZstWriter};
 
+use ndjson_zst::{NdjsonZstReader, NdjsonZstWriter};
 
 const DATA: &'static str = r#"{"a": 1}"#;
 const PATH: &'static str = "test.ndjson.zst";
@@ -18,18 +17,16 @@ fn main() {
 
 
 fn write_example(){
-    let file = File::create(PATH).unwrap();
-    let mut ndjson_zst_writer = NdjsonZstWriter::new(file);
+    let mut ndjson_zst_writer = NdjsonZstWriter::new(PATH, 0).unwrap();
     ndjson_zst_writer.write(DATA);
     ndjson_zst_writer.write(DATA);
     ndjson_zst_writer.write(DATA);
 }
 
 fn read_example() {
-    let file = File::open(PATH).unwrap();
-    let mut ndjson_zst_reader = NdjsonZstReader::new(file);
+    let ndjson_zst_reader = NdjsonZstReader::new(PATH).unwrap();
 
-    for line in ndjson_zst_reader.lines() {
+    for line in ndjson_zst_reader {
         assert_eq!(line, DATA);
     }
 
